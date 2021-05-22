@@ -1,5 +1,14 @@
-FROM mcr.microsoft.com/mssql/server
+FROM mcr.microsoft.com/mssql/server AS base
 
+# Build image
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+WORKDIR /src
+COPY dbrestore.csproj .
+RUN dotnet restore "dbrestore.csproj"
+COPY . .
+RUN dotnet publish "dbrestore.csproj" -c Release -o /app/build
+
+FROM base AS final
 # Switch to root user
 USER root
 
@@ -13,8 +22,8 @@ ADD https://raw.githubusercontent.com/olahallengren/sql-server-maintenance-solut
 # Copy the entrypoint
 COPY entrypoint.sh /usr/src/app/entrypoint.sh
 
-# Copy the dbrestore app
-COPY bin/Release/net5.0/linux-x64/publish/dbrestore /usr/src/app/dbrestore
+# Copy the dbrestore app from the build image
+COPY --from=build /app/build/dbrestore /usr/src/app/dbrestore
 
 # Grant permissions
 RUN chmod +x /usr/src/app/dbrestore
