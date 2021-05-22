@@ -1,6 +1,8 @@
 # About this Image
 This is a utility version of mssql server on linux, that will take any backups present in the backups directory and create database from them that do not already exist.
+
 Currently supports full (bak’s) and transactional (trn’s) backups.
+
 Ola’s [maintenance solution](https://github.com/olahallengren/sql-server-maintenance-solution) has been added for convenience.
 
 # How to use this Image
