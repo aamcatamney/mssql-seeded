@@ -16,6 +16,7 @@ namespace dbrestore
       try
       {
         // Get Environment Variables
+        var requiredDbs = Environment.GetEnvironmentVariable("MSSS_REQUIRED_DBS") ?? "";
         var backupsPath = Environment.GetEnvironmentVariable("MSSQL_BACKUP_DIR") ?? "/var/backups";
         var password = Environment.GetEnvironmentVariable("MSSQL_SA_PASSWORD") ?? Environment.GetEnvironmentVariable("SA_PASSWORD");
 
@@ -41,7 +42,7 @@ namespace dbrestore
         var server = new Server(sc);
 
         // Get names of all existing dbs
-        var dbs = conn.Query<string>("select name from sys.databases");
+        var dbs = conn.Query<string>("select name from sys.databases").ToList();
 
         // Get all current logins
         var sqlLogins = conn.Query<string>("select name from sys.sql_logins");
@@ -135,28 +136,40 @@ namespace dbrestore
             // Add the owner user
             if (haveOwner)
             {
-              if(server.Databases[fullBak.Key].Users.Contains(ownerName))
-              {
-                server.Databases[fullBak.Key].Users[ownerName].DropIfExists();
-              }
-              var owner = new User(server.Databases[fullBak.Key], ownerName);
-              owner.Login = ownerName;
-              owner.Create();
-              owner.AddToRole("db_owner");
+              CreateUser(server, fullBak.Key, ownerName, "db_owner");
             }
 
             // Add the reader user
             if (haveReader)
             {
-              if(server.Databases[fullBak.Key].Users.Contains(readerName))
-              {
-                server.Databases[fullBak.Key].Users[readerName].DropIfExists();
-              }
-              var reader = new User(server.Databases[fullBak.Key], readerName);
-              reader.Login = readerName;
-              reader.DropIfExists();
-              reader.Create();
-              reader.AddToRole("db_datareader");
+              CreateUser(server, fullBak.Key, readerName, "db_datareader");
+            }
+
+            // Add the dbs list
+            dbs.Add(fullBak.Key);
+          }
+        }
+
+        // Add any missing required dbs
+        foreach (var db in requiredDbs.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+          // Only attempt to create dbs that done exist
+          if (!dbs.Any(d => d.Equals(db, StringComparison.OrdinalIgnoreCase)))
+          {
+            var ndb = new Database(server, db);
+            ndb.Collation = "Latin1_General_CI_AS";
+            ndb.Create();
+
+            // Add the owner user
+            if (haveOwner)
+            {
+              CreateUser(server, db, ownerName, "db_owner");
+            }
+
+            // Add the reader user
+            if (haveReader)
+            {
+              CreateUser(server, db, readerName, "db_datareader");
             }
           }
         }
@@ -165,6 +178,19 @@ namespace dbrestore
       {
         Console.Error.WriteLine(er.Message);
       }
+    }
+
+    static void CreateUser(Server server, string dbName, string username, string role)
+    {
+      if (server.Databases[dbName].Users.Contains(username))
+      {
+        server.Databases[dbName].Users[username].DropIfExists();
+      }
+      var reader = new User(server.Databases[dbName], username);
+      reader.Login = username;
+      reader.DropIfExists();
+      reader.Create();
+      reader.AddToRole(role);
     }
   }
 }

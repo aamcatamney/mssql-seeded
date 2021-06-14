@@ -34,3 +34,5 @@ Ola’s backup script can be used to take log backups:
 `MSSS_USER_READER_NAME` is the login & user name with db_datareader role that will be created and applied to each restored database.  OPTIONAL
 
 `MSSS_USER_READER_PASSWORD` is the password for the above user.  OPTIONAL
+
+`MSSS_REQUIRED_DBS` is a comma seperated list of databases that need to be created or restored.  OPTIONAL
